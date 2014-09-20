@@ -1,187 +1,152 @@
+/*
+LED VU meter for Arduino and Adafruit NeoPixel LEDs.
+
+Hardware requirements:
+ - Most Arduino or Arduino-compatible boards (ATmega 328P or better).
+ - Adafruit Electret Microphone Amplifier (ID: 1063)
+ - Adafruit Flora RGB Smart Pixels (ID: 1260)
+   OR
+ - Adafruit NeoPixel Digital LED strip (ID: 1138)
+ - Optional: battery for portable use (else power through USB or adapter)
+Software requirements:
+ - Adafruit NeoPixel library
+
+Connections:
+ - 3.3V to mic amp +
+ - GND to mic amp -
+ - Analog pin to microphone output (configurable below)
+ - Digital pin to LED data input (configurable below)
+ See notes in setup() regarding 5V vs. 3.3V boards - there may be an
+ extra connection to make and one line of code to enable or disable.
+
+Written by Adafruit Industries.  Distributed under the BSD license.
+This paragraph must be included in any redistribution.
+*/
+
 #include <Adafruit_NeoPixel.h>
-#define PIN 6
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(480, PIN, NEO_GRB + NEO_KHZ800);
+
+#define N_CHUNKS  24  // Number of pixels in strand
+#define N_PX_TOT 480  // Number of pixels in strand
+#define N_PX_CHK  ( N_PX_TOT / N_CHUNKS )  // Number of pixels in strand
+#define MIC_PIN   A9  // Microphone is attached to this analog pin
+#define LED_PIN    6  // NeoPixel LED strand is connected to this pin
+#define DC_OFFSET  0  // DC offset in mic signal - if unusure, leave 0
+#define NOISE     10  // Noise/hum/interference in mic signal
+#define SAMPLES   60  // Length of buffer for dynamic level adjustment
+#define TOP       (N_PX_CHK + 2) // Allow dot to go slightly off scale
+#define PEAK_FALL 10  // Rate of peak falling dot
+
+byte
+  peak      = 0,      // Used for falling dot
+  dotCount  = 0,      // Frame counter for delaying dot-falling speed
+  volCount  = 0;      // Frame counter for storing past volume data
+int
+  vol[SAMPLES],       // Collection of prior volume samples
+  lvl       = 10,      // Current "dampened" audio level
+  minLvlAvg = 0,      // For dynamic adjustment of graph low & high
+  maxLvlAvg = 512;
+Adafruit_NeoPixel
+  strip = Adafruit_NeoPixel(N_PX_TOT, LED_PIN, NEO_GRB + NEO_KHZ800);
+
 void setup() {
+
+  // This is only needed on 5V Arduinos (Uno, Leonardo, etc.).
+  // Connect 3.3V to mic AND TO AREF ON ARDUINO and enable this
+  // line.  Audio samples are 'cleaner' at 3.3V.
+  // COMMENT OUT THIS LINE FOR 3.3V ARDUINOS (FLORA, ETC.):
+//  analogReference(EXTERNAL);
+
+  memset(vol, 0, sizeof(vol));
   strip.begin();
-  strip.show(); // Initialize all pixels to 'off'
-  // Serial.begin(9600); while (! Serial);
 }
 
 void loop() {
+  uint8_t  i;
+  uint16_t minLvl, maxLvl;
+  int      n, height;
 
-  strip.setBrightness(100);
+ 
 
-  uint8_t q, r, s, numColors, currentColor;
-  uint16_t spacing, spread;
+  n   = analogRead(MIC_PIN);                        // Raw reading from mic 
+  n   = abs(n - 512 - DC_OFFSET); // Center on zero
+  n   = (n <= NOISE) ? 0 : (n - NOISE);             // Remove noise/hum
+  lvl = ((lvl * 7) + n) >> 3;    // "Dampened" reading (else looks twitchy)
 
-  numColors = 16; // [1,256]
-  spacing = 120;
-  spread = 5;
+  // Calculate bar height based on dynamic min/max levels (fixed point):
+  height = TOP * (lvl - minLvlAvg) / (long)(maxLvlAvg - minLvlAvg);
 
-  boolean reverse1, reverse2 = true; // state, not setting
-  float colorSep = 255 / ( numColors - 1 );
-  q = s = 0; // state
-  uint8_t numSpreads = spacing / 20;
-  while(true){
-    r = q % numColors;
-    s = q % numSpreads;
+  if(height < 0L)       height = 0;      // Clip output
+  else if(height > TOP) height = TOP;
+  if(height > peak)     peak   = height; // Keep 'peak' dot at top
 
-    if (r == 0) { reverse1 = !reverse1; }
-    if (reverse1) { r = numColors - r; }
 
-    if (s == 0) { reverse2 = !reverse2; }
-    if (reverse2) { s = numSpreads - s; }
-
-    currentColor = round( r * colorSep );
-    spread = s*2 + 1 + 10;
+  // Color pixels based on rainbow gradient
+  for(i=0; i<N_PX_CHK; i++) {
+    if(i >= height)               setPixelColor(i,   0,   0, 0);
+    else setPixelColor(i,Wheel(map(i,0,N_PX_CHK-1,120,220)));
     
-    //Serial.println(spread);
-    
-    uint8_t dot [3] = { 0, 0, currentColor};
-    uint8_t bg  [3] = { 128, 0, 128};
-    dotsOnColor(dot, bg, spacing, spread, true, 1);
-
-    q++;
   }
 
-  rainbow(20);
 
-}
 
-// Show dot colored dots on bg color background
-// dots are spacing pixels apart and move every w milliseconds
-void dotsOnColor(uint8_t dot[], uint8_t bg[], uint16_t spacing, uint16_t spread, boolean symmetrical, uint16_t w) {
+  // Draw peak dot  
+  if(peak > 0 && peak <= N_PX_CHK-1) setPixelColor(peak,Wheel(map(peak,0,N_PX_CHK-1,120,220)));
+  
+   strip.show(); // Update strip
 
-  // handle each offset s
-  for(uint16_t j=1; j<=spacing; j++) {
-    // handle each dot at position i+sx
-    for(uint16_t i=j-1; i<strip.numPixels(); i=i+spacing) {
-      setDot(dot, bg, i, spread, symmetrical);
+// Every few frames, make the peak pixel drop by 1:
+
+    if(++dotCount >= PEAK_FALL) { //fall rate 
+      
+      if(peak > 0) peak--;
+      dotCount = 0;
     }
-    strip.show();
-    
-    delay( floor(w * ( spacing / 2 / j + 0.5 ) ) );
-    //delay( pow( abs( j - floor((spacing-0)/2 )), 2 ) );
+
+
+
+  vol[volCount] = n;                      // Save sample for dynamic leveling
+  if(++volCount >= SAMPLES) volCount = 0; // Advance/rollover sample counter
+
+  // Get volume range of prior frames
+  minLvl = maxLvl = vol[0];
+  for(i=1; i<SAMPLES; i++) {
+    if(vol[i] < minLvl)      minLvl = vol[i];
+    else if(vol[i] > maxLvl) maxLvl = vol[i];
   }
+  // minLvl and maxLvl indicate the volume range over prior frames, used
+  // for vertically scaling the output graph (so it looks interesting
+  // regardless of volume level).  If they're too close together though
+  // (e.g. at very low volume levels) the graph becomes super coarse
+  // and 'jumpy'...so keep some minimum distance between them (this
+  // also lets the graph go to zero when no sound is playing):
+  if((maxLvl - minLvl) < TOP) maxLvl = minLvl + TOP;
+  minLvlAvg = (minLvlAvg * 63 + minLvl) >> 6; // Dampen min/max levels
+  maxLvlAvg = (maxLvlAvg * 63 + maxLvl) >> 6; // (fake rolling average)
 
 }
 
-void setDot( uint8_t dot[], uint8_t bg[], uint16_t pixel, uint8_t spread, boolean symmetrical ) {
-  if( symmetrical ) {
-    spread = ceil(spread / 2);
-  }
-  // must be signed int or we will roll over and never go negative to stop the loop
-  for(int16_t i=spread+1; i>=0; i--) {
-    // percent should be 100 when i=0, 0 when i=spread
-    uint8_t percent = (uint8_t)( 100 * ( spread  - i ) / spread );
-    strip.setPixelColor( getPixel(pixel, -i), getMixedColor( dot, bg, percent ) );
-    if( symmetrical ) {
-      strip.setPixelColor( getPixel(pixel, i), getMixedColor( dot, bg, percent ) );
-    }
-  }
-}
-
-uint16_t getPixel(uint16_t pos, int16_t offset) {
-  int16_t target = pos + offset;
-  if( target < 0 ) {
-    return strip.numPixels() + target;
-  } else if( target < strip.numPixels() ) {
-    return target;
-  } else {
-    return target - strip.numPixels() + 1;
-  }
-}
-
-uint32_t getMixedColor( uint8_t dot[], uint8_t bg[], uint8_t percent ) {
-  if( percent < 0 || percent > 100 ) { percent = 0; }
-  uint8_t mixed [3];
-  for(uint8_t i=0; i<3; i++) {
-    mixed[i] = (uint8_t)( bg[i] + ( dot[i] - bg[i] ) * percent / 100 );
-  }
-  return strip.Color(mixed[0], mixed[1], mixed[2]);
-}
-
-
-
-
-
-
-
-
-
-
-// Fill the dots one after the other with a color
-void colorWipe(uint32_t c, uint8_t wait) {
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColor(i, c);
-      strip.show();
-      delay(wait);
-  }
-}
-
-void rainbow(uint8_t wait) {
-  uint16_t i, j;
-
-  for(j=0; j<256; j++) {
-    for(i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel((i+j) & 255));
-    }
-    strip.show();
-    delay(wait);
-  }
-}
-
-// Slightly different, this makes the rainbow equally distributed throughout
-void rainbowCycle(uint8_t wait) {
-  uint16_t i, j;
-
-  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
-    for(i=0; i< strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
-    }
-    strip.show();
-    delay(wait);
-  }
-}
-
-//Theatre-style crawling lights.
-void theaterChase(uint32_t c, uint8_t wait) {
-  for (int j=0; j<10; j++) {  //do 10 cycles of chasing
-    for (int q=0; q < 3; q++) {
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, c);    //turn every third pixel on
-      }
-      strip.show();
-     
-      delay(wait);
-     
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0);        //turn every third pixel off
-      }
+void setPixelColor(uint16_t n, uint8_t r, uint8_t g, uint8_t b){
+  for(uint8_t i = 0; i < N_CHUNKS; i++) {
+    if( i % 2 == 0 ) {
+      strip.setPixelColor( (n + i * N_PX_CHK ),r,g,b);
+    } else {
+      strip.setPixelColor( (n + i * N_PX_CHK ),r,g,b);
     }
   }
 }
 
-//Theatre-style crawling lights with rainbow effect
-void theaterChaseRainbow(uint8_t wait) {
-  for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
-    for (int q=0; q < 3; q++) {
-        for (int i=0; i < strip.numPixels(); i=i+3) {
-          strip.setPixelColor(i+q, Wheel( (i+j) % 255));    //turn every third pixel on
-        }
-        strip.show();
-       
-        delay(wait);
-       
-        for (int i=0; i < strip.numPixels(); i=i+3) {
-          strip.setPixelColor(i+q, 0);        //turn every third pixel off
-        }
+void setPixelColor(uint16_t n, uint32_t c){
+  for(uint8_t i = 0; i < N_CHUNKS; i++) {
+    if( i % 2 == 0 ) {
+      strip.setPixelColor( (n + i * N_PX_CHK ),c);
+    } else {
+      strip.setPixelColor( (n + i * N_PX_CHK ),c);
     }
   }
 }
 
 // Input a value 0 to 255 to get a color value.
-// The colours are a transition r - g - b - back to r.
+// The colors are a transition r - g - b - back to r.
 uint32_t Wheel(byte WheelPos) {
   if(WheelPos < 85) {
    return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
@@ -193,4 +158,3 @@ uint32_t Wheel(byte WheelPos) {
    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
-
