@@ -25,14 +25,14 @@ This paragraph must be included in any redistribution.
 
 #include <Adafruit_NeoPixel.h>
 
-#define N_CHUNKS  24  // Number of pixels in strand
-#define N_PX_TOT 480  // Number of pixels in strand
+#define N_CHUNKS  33  // Number of pixels in strand
+#define N_PX_TOT 693  // Number of pixels in strand
 #define N_PX_CHK  ( N_PX_TOT / N_CHUNKS )  // Number of pixels in strand
 #define MIC_PIN   A9  // Microphone is attached to this analog pin
 #define LED_PIN    6  // NeoPixel LED strand is connected to this pin
 #define DC_OFFSET  0  // DC offset in mic signal - if unusure, leave 0
 #define NOISE     10  // Noise/hum/interference in mic signal
-#define SAMPLES   60  // Length of buffer for dynamic level adjustment
+#define SAMPLES   50  // Length of buffer for dynamic level adjustment
 #define TOP       (N_PX_CHK + 2) // Allow dot to go slightly off scale
 #define PEAK_FALL 10  // Rate of peak falling dot
 
@@ -48,24 +48,96 @@ int
 Adafruit_NeoPixel
   strip = Adafruit_NeoPixel(N_PX_TOT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
+int switchPin = 10; // switch is connected to pin 10
+int pinVal; // variable for reading the pin status
+int pinVal2;
+int buttonState; // variable to hold the button state
+int lightMode = 0; // how many times the button has been pressed
+
 void setup() {
+
+  pinMode(switchPin, INPUT_PULLUP); // Set the switch pin as input
+  pinMode(LED_PIN, OUTPUT); // not sure why this is here
+  buttonState = digitalRead(switchPin); // read the initial state
 
   // This is only needed on 5V Arduinos (Uno, Leonardo, etc.).
   // Connect 3.3V to mic AND TO AREF ON ARDUINO and enable this
   // line.  Audio samples are 'cleaner' at 3.3V.
   // COMMENT OUT THIS LINE FOR 3.3V ARDUINOS (FLORA, ETC.):
-//  analogReference(EXTERNAL);
+  // analogReference(EXTERNAL);
 
   memset(vol, 0, sizeof(vol));
   strip.begin();
 }
 
 void loop() {
+  pinVal = digitalRead(switchPin); // read input value and store it in pinVal
+  delay (20);
+  pinVal2 = digitalRead(switchPin);
+  if (pinVal == pinVal2) {
+    if (pinVal != buttonState && pinVal==LOW) { // the button state has changed!
+      lightMode++;
+      if (lightMode == 6) lightMode = 0;
+    }
+  }
+  buttonState = pinVal; // save the new state in our variable
+
+  if (lightMode == 0) {
+    colorWipe(strip.Color(0, 0, 0), 0);
+    delay(20);
+  } else if (lightMode == 1) {
+    
+    rainbowSingle(3);
+
+  } else if (lightMode == 2) {
+    //rainbow(1);
+    rainbowCycle(1);
+  } else {
+    int counter = 0;
+    while (counter < 100) {
+      volMeter(lightMode);
+      counter++;
+    }
+  }
+
+}
+
+// Fill the dots one after the other with a color
+void colorWipe(uint32_t c, uint8_t wait) {
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, c);
+    if ( wait ) {
+      strip.show();
+      delay(wait);
+    }
+  }
+  if ( wait == 0 ) {
+    strip.show();
+  }
+}
+
+void volMeter(int lightMode){
+  lightMode = lightMode - 1;
   uint8_t  i;
   uint16_t minLvl, maxLvl;
   int      n, height;
-
- 
+  int startColor, endColor;
+  if (lightMode == 2) {
+    startColor = 120;
+    endColor   = 220;
+  }
+  if (lightMode == 3) {
+    startColor = 220;
+    endColor   = 250;
+  }
+  if (lightMode == 4) {
+    startColor = 20;
+    endColor   = 60;
+  }
+  if (lightMode == 5) {
+    startColor = 1;
+    endColor   = 255;
+  }
 
   n   = analogRead(MIC_PIN);                        // Raw reading from mic 
   n   = abs(n - 512 - DC_OFFSET); // Center on zero
@@ -79,30 +151,24 @@ void loop() {
   else if(height > TOP) height = TOP;
   if(height > peak)     peak   = height; // Keep 'peak' dot at top
 
-
   // Color pixels based on rainbow gradient
   for(i=0; i<N_PX_CHK; i++) {
     if(i >= height)               setPixelColor(i,   0,   0, 0);
-    else setPixelColor(i,Wheel(map(i,0,N_PX_CHK-1,120,220)));
+    else setPixelColor(i,Wheel(map(i,0,N_PX_CHK-1,startColor,endColor)));
     
   }
 
-
-
   // Draw peak dot  
-  if(peak > 0 && peak <= N_PX_CHK-1) setPixelColor(peak,Wheel(map(peak,0,N_PX_CHK-1,120,220)));
+  if(peak > 0 && peak <= N_PX_CHK-1) setPixelColor(peak,Wheel(map(peak,0,N_PX_CHK-1,startColor,endColor)));
   
    strip.show(); // Update strip
 
-// Every few frames, make the peak pixel drop by 1:
-
+  // Every few frames, make the peak pixel drop by 1:
     if(++dotCount >= PEAK_FALL) { //fall rate 
       
       if(peak > 0) peak--;
       dotCount = 0;
     }
-
-
 
   vol[volCount] = n;                      // Save sample for dynamic leveling
   if(++volCount >= SAMPLES) volCount = 0; // Advance/rollover sample counter
@@ -122,7 +188,6 @@ void loop() {
   if((maxLvl - minLvl) < TOP) maxLvl = minLvl + TOP;
   minLvlAvg = (minLvlAvg * 63 + minLvl) >> 6; // Dampen min/max levels
   maxLvlAvg = (maxLvlAvg * 63 + maxLvl) >> 6; // (fake rolling average)
-
 }
 
 void setPixelColor(uint16_t n, uint8_t r, uint8_t g, uint8_t b){
@@ -142,6 +207,47 @@ void setPixelColor(uint16_t n, uint32_t c){
     } else {
       strip.setPixelColor( (n + i * N_PX_CHK ),c);
     }
+  }
+}
+
+//Rainbow Program
+void rainbowSingle(int wait) {
+  uint16_t i, j;
+  for(j=0; j<256; j++) {
+    if(wait < 0 &&  j % ( -1 * wait ) != 0){
+      continue; 
+    }
+    for(i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel(j));
+    }
+    strip.show();
+    if(wait > 0){
+      delay(wait);
+    }
+  }
+}
+
+//Rainbow Program
+void rainbow(uint8_t wait) {
+  uint16_t i, j;
+  for(j=0; j<256; j++) {
+    for(i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel((i+j) & 255));
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+// Rainbow Cycle Program - Equally distributed
+void rainbowCycle(uint8_t wait) {
+  uint16_t i, j;
+  for(j=0; j<256; j++) { // 5 cycles of all colors on wheel
+    for(i=0; i< strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+    }
+    strip.show();
+    delay(wait);
   }
 }
 
