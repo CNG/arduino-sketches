@@ -3,7 +3,7 @@
 extern Adafruit_NeoPixel strip;
 extern boolean pushed;
 extern uint8_t _pin_pot;
-extern uint8_t lightMode;
+extern int lightMode;
 
 void buttonPushed();
 void setBrightness();

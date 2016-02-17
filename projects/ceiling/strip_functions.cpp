@@ -1,14 +1,20 @@
 #include "strip_functions.h"
 
-/*
-  Instead of changing brightness directly within interrupt, we'll just toggle a
-  variable that we'll check for later. This prevents any weirdness due to 
-  variable volatility.
+/**
+ * See if button was pushed. If so, delay and then set "pushed" back to false.
+ * If we don't delay first, the interrupt might set "pushed" back to true, 
+ * causing the condition to fire too many times on "one" button push.
  */
-void buttonPushed() {
-  pushed = true;
-  lightMode++;
-  if (lightMode == 6) lightMode = 0;
+boolean checkButton() {
+  if( pushed ){
+    setBrightness();
+    delay(250);
+    pushed = false;
+    lightMode++;
+    if (lightMode == 7) lightMode = 0;
+    return true;
+  }
+  return false;
 }
 
 /*
@@ -42,14 +48,11 @@ uint32_t Wheel(byte WheelPos) {
 void rainbowCycle(uint8_t wait) {
   uint16_t i, j;
   for(j=0; j<256; j++) { // cycle all wheel colors
+    if( checkButton() ){ return; };
     for(i=0; i< strip.numPixels(); i++) {
 
       // detect if interrupt occurred since last pixel
       // (this check could go out one loop, but it's still fast enough)
-      if(pushed){
-        setBrightness();
-        pushed = false; // reset interrupt detection
-      }
 
       strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
     }
@@ -79,6 +82,7 @@ void rainbowSingle(int wait) {
     if(wait < 0 &&  j % ( -1 * wait ) != 0){
       continue; 
     }
+      if( checkButton() ){ return; };
     for(i=0; i<strip.numPixels(); i++) {
       strip.setPixelColor(i, Wheel(j));
     }
@@ -93,6 +97,7 @@ void rainbowSingle(int wait) {
 void rainbow(uint8_t wait) {
   uint16_t i, j;
   for(j=0; j<256; j++) {
+    if( checkButton() ){ return; };
     for(i=0; i<strip.numPixels(); i++) {
       strip.setPixelColor(i, Wheel((i+j) & 255));
     }

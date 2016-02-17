@@ -25,6 +25,7 @@ This paragraph must be included in any redistribution.
 #include <Adafruit_NeoPixel.h>
 
 extern Adafruit_NeoPixel strip;
+extern boolean checkButton();
 
 extern uint16_t _num_led;
 extern uint8_t  _pin_led;

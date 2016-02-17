@@ -6,12 +6,13 @@
   Hardware and connection dependent settings
  */
 
-uint8_t lightMode = 2;
+int lightMode = -1; // one less than we want bc interrupt runs at beginning apparently
 
 #include "strip_functions.h"
 uint16_t _num_led = 693; // Number of pixels in strand
 uint8_t _pin_led = 6; // NeoPixel LED strand is connected to this pin
 uint8_t _pin_pot = 9; // using 1K potentiometer
+extern boolean checkButton();
 
 #include "sound_reactive.h"
 uint8_t _pin_mic = A10; // Microphone is attached to this analog pin
@@ -22,7 +23,16 @@ extern int vol;
 
 Adafruit_NeoPixel
   strip = Adafruit_NeoPixel(_num_led, _pin_led, NEO_GRB + NEO_KHZ800);
+
 boolean pushed = false;
+/**
+ * Instead doing work directly within interrupt, we'll just toggle a
+ * variable that we'll check for later. This prevents any weirdness due to 
+ * variable volatility.
+ */
+void buttonInterrupt() {
+  pushed = true;
+}
 
 //int lightMode = 0; // how many times the button has been pressed
 
@@ -41,7 +51,7 @@ void setup() {
      */
     pinMode(0, INPUT_PULLUP); // configure pin to behave as input
     // when button is pushed, run buttonPushed()
-    attachInterrupt(2, buttonPushed, FALLING); // listen for high to low
+    attachInterrupt(2, buttonInterrupt, FALLING); // listen for high to low
 
     // from Amplitie code, not sure if needed or what it does
     //pinMode(_pin_led, OUTPUT);
@@ -61,34 +71,24 @@ void setup() {
   strip.show(); // Initialize all pixels to 'off'
 }
 
-
-
-
 void loop() {
 
-  // detect if interrupt occurred since last pixel
-  // (this check could go out one loop, but it's still fast enough)
-  if(pushed){
-    setBrightness();
-    pushed = false; // reset interrupt detection
-  }         
+  checkButton();
 
-  if (lightMode == 0) {
-    colorWipe(strip.Color(0, 0, 0), 0);
-    delay(20);
-  } else if (lightMode == 1) {
-    
-    rainbowSingle(3);
-
-  } else if (lightMode == 2) {
-    //rainbow(1);
-    rainbowCycle(1);
-  } else {
-    int counter = 0;
-    while (counter < 100) {
+  switch (lightMode) {
+    case 0:
+      colorWipe(strip.Color(0, 0, 0), 0);
+      delay(20);
+      break;
+    case 1:
+      rainbowSingle(3);
+      break;
+    case 2:
+      rainbowCycle(1);
+      break;
+    default:
       volMeter(lightMode);
-      counter++;
-    }
+      break;
   }
 
 }

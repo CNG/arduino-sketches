@@ -40,24 +40,24 @@ void setPixelColor(uint16_t n, uint32_t c){
 }
 
 void volMeter(int lightMode){
-  lightMode = lightMode - 1;
+  if( checkButton() ){ return; };
   uint8_t  i;
   uint16_t minLvl, maxLvl;
   int      n, height;
   int startColor, endColor;
-  if (lightMode == 2) {
+  if (lightMode == 3) {
     startColor = 120;
     endColor   = 220;
   }
-  if (lightMode == 3) {
+  if (lightMode == 4) {
     startColor = 220;
     endColor   = 250;
   }
-  if (lightMode == 4) {
+  if (lightMode == 5) {
     startColor = 20;
     endColor   = 60;
   }
-  if (lightMode == 5) {
+  if (lightMode == 6) {
     startColor = 1;
     endColor   = 255;
   }
