@@ -76,6 +76,9 @@ void loop() {
   checkButton();
 
   switch (lightMode) {
+    default:
+      // we exceeded defined modes, reset and fall through
+      lightMode = 0;
     case 0:
       colorWipe(strip.Color(0, 0, 0), 0);
       delay(20);
@@ -84,10 +87,14 @@ void loop() {
       rainbowSingle(3);
       break;
     case 2:
-      rainbowCycle(1);
+      pulse(strip.Color(127, 0, 255), 0);
       break;
-    default:
-      volMeter(lightMode);
+    case 3: volMeter(120,220); break;
+    case 4: volMeter(220,250); break;
+    case 5: volMeter( 20, 60); break;
+    case 6: volMeter(  1,255); break;
+    case 7:
+      rainbowCycle(1);
       break;
   }
 

@@ -11,7 +11,6 @@ boolean checkButton() {
     delay(250);
     pushed = false;
     lightMode++;
-    if (lightMode == 7) lightMode = 0;
     return true;
   }
   return false;
@@ -43,6 +42,32 @@ uint32_t Wheel(byte WheelPos) {
 }
 
 /*
+  Fade from off to given color and back.
+ */
+void pulse(uint32_t c, int w) {
+  for(uint16_t j=8; j<255; j++) {
+    if( checkButton() ){ return; };
+    strip.setBrightness(j-1);
+    for(uint16_t i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, c);
+    }
+    strip.show();
+    delay(w);
+  }
+  delay(w*10+50);
+  for(uint16_t j=255; j>8; j--) {
+    if( checkButton() ){ return; };
+    strip.setBrightness(j-1);
+    for(uint16_t i=0; i<strip.numPixels(); i++) {
+      strip.setPixelColor(i, c);
+    }
+    strip.show();
+    delay(w);
+  }
+  delay(w*10+50);
+}
+
+/*
   Rainbow Cycle Program - Equally distributed
  */
 void rainbowCycle(uint8_t wait) {
@@ -50,11 +75,20 @@ void rainbowCycle(uint8_t wait) {
   for(j=0; j<256; j++) { // cycle all wheel colors
     if( checkButton() ){ return; };
     for(i=0; i< strip.numPixels(); i++) {
-
-      // detect if interrupt occurred since last pixel
-      // (this check could go out one loop, but it's still fast enough)
-
-      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+      strip.setPixelColor(
+        i,
+        Wheel(
+          // i*256/numPixels() is like mapping i in 0...numPixels() to 0..256
+          // 
+          // + j & 255 ensures we change color each time we visit given pixel
+          // while not running over 255
+          // 
+          // casting to uint32_t lets us handle strips longer than 256 pixels
+          // since that would result in number larger than 32K, causing wraparound
+          // to negative number
+          ( (uint8_t) ( (uint32_t) i * 256 / strip.numPixels()) + j) & 255
+        )
+      );
     }
     strip.show();
     delay(wait);
@@ -79,10 +113,12 @@ void colorWipe(uint32_t c, uint8_t wait) {
 void rainbowSingle(int wait) {
   uint16_t i, j;
   for(j=0; j<256; j++) {
+    // kind of a hack to allow negative wait value to speed rainbow by
+    // skipping colors, otherwise 0 would be fast as chip could process
     if(wait < 0 &&  j % ( -1 * wait ) != 0){
       continue; 
     }
-      if( checkButton() ){ return; };
+    if( checkButton() ){ return; };
     for(i=0; i<strip.numPixels(); i++) {
       strip.setPixelColor(i, Wheel(j));
     }

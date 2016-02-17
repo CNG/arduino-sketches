@@ -34,6 +34,6 @@ extern uint8_t  _pin_mic;
 extern uint32_t Wheel(byte WheelPos);
 
 
-void volMeter(int lightMode);
+void volMeter(uint8_t startColor, uint8_t endColor);
 void setPixelColor(uint16_t n, uint8_t r, uint8_t g, uint8_t b);
 void setPixelColor(uint16_t n, uint32_t c);
