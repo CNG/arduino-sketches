@@ -98,8 +98,15 @@ void fft_loop(){
   arm_cmplx_mag_squared_q15(outsq,out,FFT_N/2);
 }
 
-void* get_bins(){
-  return (void*)out;
+uint16_t * get_bins(uint8_t group_n){
+  static uint16_t* buckets = (uint16_t*) malloc( FFT_N/2 * sizeof(uint16_t) );
+  memset(buckets, 0, FFT_N/2 * sizeof(*buckets)); // clear buckets each loop
+  for( uint16_t i = 0; i < FFT_N/2; i++ ){
+    for( uint8_t j = 0; j < group_n; j++ ){
+      buckets[i] += out[i*group_n+j+1];
+    }
+  }
+  return buckets;
 }
 
 void fft_print_bins(){
@@ -115,19 +122,19 @@ void fft_print_bins(){
   }
 }
 
-// convert FFT_N/2 bins to $buckets summed buckets as in [Scheirer 1998]
+// convert FFT_N/2 bins to $buckets_n summed buckets as in [Scheirer 1998]
 // buckets will be like 200Hz, 400, 800, 1600, 3200, 6400
-void* fft_buckets(uint8_t buckets, uint8_t log_level){
-  uint16_t group_n = FFT_N/2 / ( 1 << ( buckets - 1 ) ); // # bins in first bucket, 2^n == 1 << n
-  uint16_t bucket[ buckets ];
-  memset(bucket, 0, sizeof(bucket)); // clear buckets each loop
+uint16_t * fft_buckets(uint8_t buckets_n, uint8_t log_level){
+  uint16_t group_n = FFT_N/2 / ( 1 << ( buckets_n - 1 ) ); // # bins in first bucket, 2^n == 1 << n
+  static uint16_t* buckets = (uint16_t*) malloc( buckets_n * sizeof(uint16_t) ); // static so we can return address of local variable to outside function
+  memset(buckets, 0, buckets_n * sizeof(*buckets)); // clear buckets each loop
   // char s[100];
   // sprintf(s,"FFT of %d readings %d times per second.", FFT_N, REG_TC0_RC0);
   // SerialUSB.println(s);
-  // sprintf(s,"The %d bins will go into %d buckets, with first bucket containing %d bins.", FFT_N/2, buckets, group_n);
+  // sprintf(s,"The %d bins will go into %d buckets, with first bucket containing %d bins.", FFT_N/2, buckets_n, group_n);
   // SerialUSB.println(s);
-  // SerialUSB.print("bucket[start_bin:end_bin]:");
-  for( uint8_t i = 0; i < buckets; i++ ){
+  // SerialUSB.print("buckets[start_bin:end_bin]:");
+  for( uint8_t i = 0; i < buckets_n; i++ ){
     uint16_t bin_start, bin_end; // boundaries of this summed bucket
     if( i == 0 ){ // first bucket is a special case
       bin_start = 1;
@@ -143,20 +150,20 @@ void* fft_buckets(uint8_t buckets, uint8_t log_level){
     // sprintf(s," %d[%d:%d]", i, bin_start, bin_end );
     // SerialUSB.print(s);
     for( uint16_t j = bin_start; j <= bin_end; j++ ){
-      bucket[i] += out[j];
+      buckets[i] += out[j];
     }
   }
   // SerialUSB.println();
 
   if(log_level>0){
     SerialUSB.print(" Buckets: ");
-    for( uint8_t i = 0; i < buckets; i++ ){
-      pad(bucket[i], 5);
+    for( uint8_t i = 0; i < buckets_n; i++ ){
+      pad(buckets[i], 5);
       SerialUSB.print(" ");
     }
   }
 
-  return (void*)bucket;
+  return buckets;
 
 }
 

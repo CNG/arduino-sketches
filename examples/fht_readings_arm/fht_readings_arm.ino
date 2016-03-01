@@ -22,18 +22,21 @@ void pad( int number, byte width = 3 ) {
   SerialUSB.print(number);
 }
 
-int log_level = 2;
+int log_level = 0;
 
 void setup(){
 
-  while (!Serial);    // wait for serialUSB monitor to be opened
-  SerialUSB.begin(1); // rate ignored for native port
+  if( log_level ){
+    while (!Serial);    // wait for serialUSB monitor to be opened
+    SerialUSB.begin(1); // rate ignored for native port
+  }
 
   fft_setup();
   led_setup();
   
 }
 
+int count = 0;
 
 void loop(){
 
@@ -45,17 +48,22 @@ void loop(){
 
   //fft_print_bins();
 
-  void* bucket = fft_buckets(6, 1);
-  //led_show(bucket);
+  if( count == 0 ){ // too jittery if we do the lights every 1/100 second
+    uint16_t * buckets = fft_buckets(6, log_level);
+    led_show(buckets, log_level);
 
-  detect_beat(bucket, 2);
+    //detect_beat(buckets, log_level);
 
-  // void* bins = get_bins();
-  // led_show_32(bins);
+    // uint16_t * bins = get_bins(1);
+    // led_show_32(bins, log_level);
+  }
+
 
 
   if(log_level>0){
     SerialUSB.println();
   }
+
+  if(++count >= 3) count = 0;
 
 }

@@ -31,27 +31,32 @@ bool beats[6];
 float ratios[6];
 
 
-bool detect_beat(void* param, uint8_t log_level){
-  uint16_t *bucket;
-  bucket=(uint16_t*) param;
+bool detect_beat(uint16_t * buckets, uint8_t log_level){
 
-  // compute average of samples for each bucket
+  if(log_level==3){
+    char s[100];
+    sprintf(s," *Buckets: %05d %05d %05d %05d %05d %05d", buckets[0], buckets[1], buckets[2], buckets[3], buckets[4], buckets[5]);
+    SerialUSB.print(s);
+  }
+
+  // compute average of samples for each buckets
   for( uint16_t i = 0; i < 6; i++ ){
-    samples_long[i][samples_long_count] = bucket[i]; // save sample for averaging
-    samples_inst[i][samples_inst_count] = bucket[i]; // save sample for averaging
+    samples_long[i][samples_long_count] = buckets[i]; // save sample for averaging
+    samples_inst[i][samples_inst_count] = buckets[i]; // save sample for averaging
+
+    // char s[100];
+    // sprintf(s," buckets[%03d] == %05d; samples_long[%03d][%03d] == %05d; samples_inst[%03d][%03d] == %05d;", i, buckets[i], i, samples_long_count, samples_long[i][samples_long_count], i, samples_inst_count, samples_inst[i][samples_inst_count] );
+    // SerialUSB.print(s);
+
     int average = 0;
     for( uint16_t j = 0; j < samples_long_n; j++ ){
       average += samples_long[i][j];
     } 
 
-    char s[100];
-    sprintf(s," [ %05d(%03d) == %05d ]", samples_long[i][samples_long_count], samples_long_count, bucket[i] );
-    SerialUSB.print(s);
-
     averages[i] = floor( average / samples_long_n );
   }
 
-  if(log_level==2){
+  if(log_level==1){
     char s[100];
     sprintf(s," Averages: %05d %05d %05d %05d %05d %05d", averages[0], averages[1], averages[2], averages[3], averages[4], averages[5]);
     SerialUSB.print(s);
@@ -67,7 +72,7 @@ bool detect_beat(void* param, uint8_t log_level){
     variances[i] = floor( sqrt( sum_of_squared_diffs ) / samples_long_n );
   }
 
-  if(log_level==2){
+  if(log_level==1){
     char s[100];
     sprintf(s," Variance: %04d %04d %04d %04d %04d %04d", variances[0], variances[1], variances[2], variances[3], variances[4], variances[5]);
     SerialUSB.print(s);
