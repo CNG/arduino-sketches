@@ -1,0 +1,50 @@
+#!/bin/zsh 
+
+doit () {
+	local width=${1:-640}
+	local copts
+
+	copts=(-loop 0 -layers Optimize -)
+
+	ffmpeg -i "/Volumes/Striped/Pictures/2016/08/VID_20160827_005447.mp4" \
+	  -vf scale=$width:-1 -ss 1 -t 1 -r 10 -f image2pipe -vcodec ppm - |
+	  convert -delay 5 $copts umbrella-$width.gif
+	ffmpeg -i "/Volumes/Striped/Pictures/2015/10/FCNG6274.MOV" \
+	  -vf scale=$width:-1 -ss 5.2 -t 3.6 -r 5 -f image2pipe -vcodec ppm - |
+	  convert -delay 10 $copts hood-$width.gif
+
+  (( width > 500 )) || copts=(-loop 0 -dither None -colors 80 -fuzz "5%" -layers Optimize -)
+
+	ffmpeg -i "/Volumes/Striped/Pictures/2016/08/FCNG6671 watching bike, erik approach.MOV" \
+	  -vf scale=$width:-1 -ss 0 -t 11 -r 3 -f image2pipe -vcodec ppm - |
+	  convert -delay 7 $copts bike-$width.gif
+	ffmpeg -i "/Volumes/Striped/Pictures/2015/08/VID_20150801_215316120.mp4" \
+	  -vf scale=$width:-1 -ss 2 -t 4 -r 6 -f image2pipe -vcodec ppm - |
+	  convert -delay 5 $copts boa-$width.gif
+	ffmpeg -i "/Volumes/Striped/Pictures/2016/02/Ceiling Test 2016-02-06.mp4" \
+	  -vf scale=$width:-1 -ss 9.5 -t 0.5 -r 13 -f image2pipe -vcodec ppm - |
+	  convert -delay 7 $copts ceiling-$width.gif
+	ffmpeg -i "/Volumes/Striped/Pictures/2016/08/_CNG6024 Killer Kat - Trentemøller.MOV" \
+	  -vf scale=$width:-1 -ss 3.3 -t 0.5 -r 15 -f image2pipe -vcodec ppm - |
+	  convert -delay 8 $copts coat-$width.gif
+	ffmpeg -i "/Volumes/Striped/Pictures/2016/02/2016-02-29 FFT testing/Grillen im Garten by Kollektiv Turmstrasse FCNG6449.mp4" \
+	  -vf scale=$width:-1 -ss 0 -t 1 -r 20 -f image2pipe -vcodec ppm - |
+	  convert -delay 5 $copts fft-$width.gif
+	ffmpeg -i "/Volumes/Striped/Pictures/2015/07/VID_20150718_201507156.mp4" \
+	  -vf scale=$width:-1 -ss 0.3 -t 0.7 -r 15 -f image2pipe -vcodec ppm - |
+	  convert -delay 8 $copts hat-$width.gif
+
+	mkdir temppp
+	ffmpeg -i "/Volumes/Striped/Pictures/2015/04/VID_20150410_222923636.mp4" \
+		-vf scale=$width:-1 -ss 3.1 -t 0.65 -r 15 -vcodec ppm temppp/ffout%03d.png
+		cat $(find . -name "ff*.png" -print | sort) $(find . -name "ff*.png" -print | sort -r | tail -n +2) |
+		convert -delay 7 $copts cube-$width.gif
+	rm -rf temppp
+}
+
+(
+	mkdir -p images
+	cd images
+  doit 444
+  doit 888
+)
