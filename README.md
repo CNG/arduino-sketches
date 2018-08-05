@@ -1,22 +1,51 @@
 # Arduino sketches
 
-Now that a few years of working with [Arduino](https://www.arduino.cc/) have flown by, it is time to get organized. As I learn and try new techniques, I will gather working examples in the [**techniques**](techniques) folder to use as building blocks for future projects. Similarly, my various projects live in the [**projects**](projects) folder. Of course I have not done this consistently from the beginning, but what is life for if not self improvement?
+Now that a few years of working with [Arduino](https://www.arduino.cc/) have
+flown by, it is time to get organized.
+As I learn and try new techniques, I will gather working examples in the
+[**techniques**](techniques) folder to use as building blocks for future
+projects.
+Similarly, my various projects live in the [**projects**](projects) folder.
+Of course I have not done this consistently from the beginning, but what is
+life for if not self improvement?
 
-Most of my work so far has involved LEDs and signal processing for sound reactivity. I am indebted to [Burning Man 2013](https://votecharlie.com/blog/2013/09/burning-man-night.html) for opening my eyes to the accessibility of working with electronics to make art and to [Adafruit](https://learn.adafruit.com/) for some great tutorials that helped unleash the monster and drain my bank account.
+Most of my work so far has involved LEDs and signal processing for sound
+reactivity. I am indebted to [Burning Man 2013] for opening my eyes to the
+accessibility of working with electronics to make art and to [Adafruit] for
+some great tutorials that helped unleash the monster and drain my bank account.
+
+[Adafruit]: https://learn.adafruit.com/
+[Burning Man 2013]: https://votecharlie.com/blog/2013/09/burning-man-night.html
 
 ## Projects
 
-The below animations link to their code. The projects evolve, but I will try to create new ones if they diverge too much from the images. See the [**projects**](projects) folder for the complete list. Sometimes I also write about and post videos of these projects [on my blog](https://votecharlie.com/blog/technology/arduino/).
+The below animations link to their code.
+The projects evolve, but I will try to create new ones if they diverge too much
+from the images.
+See the [**projects**](projects) folder for the complete list.
+Sometimes I also write about and post videos of these projects on my [blog].
 
-| [![ceiling](/../files/images/ceiling-444.gif?raw=true "ceiling")](projects/ceiling) | [![coat](/../files/images/coat-444.gif?raw=true "coat")](projects/coat) |
+[blog]: https://votecharlie.com/blog/technology/arduino/
+
+| [![ceiling]](projects/ceiling) | [![coat]](projects/coat) |
 | - | - |
-| [![hood](/../files/images/hood-444.gif?raw=true "hood")](projects/hood5th_hat_cool_test) | [![bike 2016](/../files/images/bike-444.gif?raw=true "bike 2016")](projects/bike2016) |
-| [![cube](/../files/images/cube-444.gif?raw=true "cube")](projects/cube) | [![hat](/../files/images/hat-444.gif?raw=true "hat")](projects/hat_cool) |
-| [![umbrella](/../files/images/umbrella-444.gif?raw=true "umbrella")](projects/canopy) | [![random patterns](/../files/images/boa-444.gif?raw=true "random patterns")](projects/random_patterns) |
+| [![hood]](projects/hood5th_hat_cool_test) | [![bike 2016]](projects/bike2016) |
+| [![cube]](projects/cube) | [![hat]](projects/hat_cool) |
+| [![umbrella]](projects/canopy) | [![random patterns]](projects/random_patterns) |
+
+[ceiling]: /../files/images/ceiling-444.gif?raw=true "ceiling"
+[coat]: /../files/images/coat-444.gif?raw=true "coat"
+[hood]: /../files/images/hood-444.gif?raw=true "hood"
+[bike 2016]: /../files/images/bike-444.gif?raw=true "bike 2016"
+[cube]: /../files/images/cube-444.gif?raw=true "cube"
+[hat]: /../files/images/hat-444.gif?raw=true "hat"
+[umbrella]: /../files/images/umbrella-444.gif?raw=true "umbrella"
+[random patterns]: /../files/images/boa-444.gif?raw=true "random patterns"
 
 ## Techniques
 
-Proofs of concept or small examples that can be incorporated into other projects, organized by chip type.
+Proofs of concept or small examples that can be incorporated into other
+projects, organized by chip type.
 
 **ATmega32u4** ([datasheet](http://www.atmel.com/devices/atmega32u4.aspx))
 
