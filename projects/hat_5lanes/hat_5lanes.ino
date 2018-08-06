@@ -2,16 +2,17 @@
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
 
-#define N_PIXELS_FULL 134
-#define N_PIXELS_HALF 67
-#define BRIGHTNESS 160
-#define N_STRANDS     4
-#define MIC_PIN   A9  // Microphone is attached to this analog pin
+
+#define N_PIXELS_FULL 120
+#define N_PIXELS_HALF 60
+#define BRIGHTNESS 255
+#define N_STRANDS     5
+#define MIC_PIN   A0  // Microphone is attached to this analog pin
 #define LED_PIN    6  // NeoPixel LED strand is connected to this pin
 #define DC_OFFSET  0  // DC offset in mic signal - if unusure, leave 0
 #define SAMPLES   10  // Length of buffer for dynamic level adjustment
-#define TOP       69  // Allow dot to go slightly off scale
-#define PEAK_FALL 4  // Rate of peak falling dot
+#define TOP       62  // Allow dot to go slightly off scale
+#define PEAK_FALL 5  // Rate of peak falling dot
 
 byte
   peak      = 0,      // Used for falling dot
@@ -25,30 +26,61 @@ int
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(N_PIXELS_FULL, N_STRANDS, LED_PIN,  NEO_MATRIX_TOP     + NEO_MATRIX_RIGHT +  NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,  NEO_GRB            + NEO_KHZ800);
 //Adafruit_NeoPixel matrix = Adafruit_NeoPixel(N_PIXELS_FULL*N_STRANDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 int noise = 1;
-boolean pushed = false;
 
-int switchPin = 0; // switch is connected to pin 0
-int lightMode = 2; // how many times the button has been pressed
+int switchPin = SCL; // switch is connected to pin 0
+int lightMode; // how many times the button has been pressed
+uint8_t _pin_pot = A1; // using 1K potentiometer
+
 
 void setup() {
   pinMode(switchPin, INPUT_PULLUP); // Set the switch pin as input
-  attachInterrupt(2, buttonPushed, FALLING); // listen for high to low
+  attachInterrupt(0, buttonInterrupt, FALLING); // listen for high to low
+randomSeed(analogRead(A0));
 
   memset(vol, 0, sizeof(vol));
   Serial.begin(9600);
   noise = ( analogRead(MIC_PIN) % 9 ) * 20;
+  setBrightness();
   matrix.begin();
-  matrix.setBrightness(BRIGHTNESS);
+  lightMode = random(2,4); // how many times the button has been pressed
+
 }
 
-// Instead of changing brightness directly within interrupt, we'll just toggle a
-// variable that we'll check for later. This prevents any weirdness due to 
-// variable volatility.
-void buttonPushed() {
+boolean pushed = false;
+/**
+ * Instead doing work directly within interrupt, we'll just toggle a
+ * variable that we'll check for later. This prevents any weirdness due to 
+ * variable volatility.
+ */
+void buttonInterrupt() {
   pushed = true;
-  lightMode++;
-  if (lightMode == 5) lightMode = 2;
 }
+/**
+ * See if button was pushed. If so, delay and then set "pushed" back to false.
+ * If we don't delay first, the interrupt might set "pushed" back to true, 
+ * causing the condition to fire too many times on "one" button push.
+ */
+boolean checkButton() {
+  if( pushed ){
+    setBrightness();
+    delay(250);
+    pushed = false;
+    //lightMode++;
+    return true;
+  }
+  return false;
+}
+
+
+/*
+  Set strip brightness based on potentiometer value
+ */
+void setBrightness() {
+  // convert analogRead's range of 0 to 1023 to brightness range 0 to 255
+  uint8_t brightness = map(analogRead(_pin_pot), 0, 1023, 0, 255);
+  matrix.setBrightness(brightness);
+}
+
 
 void setMeterPixelColor(uint16_t n, uint32_t c){
   for(uint8_t i = 0; i<N_STRANDS; i++){
@@ -82,21 +114,21 @@ void setNormalPixelColor(uint16_t n, uint8_t r, uint8_t g, uint8_t b){
 }
 
 void modePulseSlow(){
-    if(pushed){ pushed = false; return; }
+    checkButton();
     colorWipe(matrix.Color(0, 0, 0), 0);
 
     delay(1000);
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse2(matrix.Color(255,0,0));
     delay(5000);
 //    pulse2(matrix.Color(128,128,0));
 //    delay(5000);
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse2(matrix.Color(0,255,0));
     delay(5000);
 //    pulse2(matrix.Color(0,128,128));
 //    delay(5000);
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse2(matrix.Color(0,0,255));
 //    delay(5000);
 //    pulse2(matrix.Color(128,0,128));
@@ -107,19 +139,19 @@ void modePulseSlow(){
 }
 void modePulseFast(){
     
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse(matrix.Color(255,0,0));
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse(matrix.Color(128,128,0));
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse(matrix.Color(0,255,0));
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse(matrix.Color(0,128,128));
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse(matrix.Color(0,0,255));
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse(matrix.Color(128,0,128));
-    if(pushed){ pushed = false; return; }
+    checkButton();
     pulse(matrix.Color(125,125,125));
     //whiteFlash(60);
 }
@@ -127,7 +159,7 @@ void modeRainbow(){
     //rainbow(1);
     //rainbowCycle(1);
     for(uint16_t j=0; j<32; j++) {
-      if(pushed){ pushed = false; return; }
+      checkButton();
       for(uint16_t i=0; i<N_PIXELS_HALF; i++) {
         setMeterPixelColor(i, Wheel((i+(j*8-1)) & 255));
       }
@@ -138,7 +170,7 @@ void modeRainbow(){
 
 void modeVolMeter(){
   while(true){
-    if(pushed){ pushed = false; return; }
+    checkButton();
     volMeter();
   }
 }
@@ -156,23 +188,25 @@ void modeAnts(){
       //int spaces[] = {  0, 2, 2, 4, 6,10,16,26,42 };
       uint8_t spaces[] = { 7, 5, 5, 4, 3, 3, 0 };
       for(uint8_t j=0; j<sizeof(times); j++) {
-        if(pushed){ pushed = false; return; }
+        checkButton();
         rainbow2( 5, times[j], spaces[j], j%2==0, random(0,8) == 0 && spaces[j] > 0, random(0,2000) == 0 );
       }
 }
 
 void loop() {
 
-  if (lightMode == 0) {
-    modePulseSlow();
-  } else if (lightMode == 1) {
-    modePulseFast();
-  } else if (lightMode == 2) {
-    modeRainbow();
-  } else if (lightMode == 3) {
-    modeVolMeter();
-  } else if (lightMode == 4) {
-    modeAnts();
+  checkButton();
+  setBrightness();
+
+  switch (lightMode) {
+    default:
+      // we exceeded defined modes, reset and fall through
+      lightMode = 2;
+    case 0: modePulseSlow(); break;
+    case 1: modePulseFast(); break;
+    case 2: modeRainbow(); break;
+    case 3: modeVolMeter(); break;
+    case 4: modeAnts(); break;
   }
 
 }
@@ -221,6 +255,8 @@ void pad( int number, byte width = 3 ) {
 void rainbow2(uint8_t mode, uint8_t wait, uint8_t spaces, boolean dir, boolean solid, boolean storm) {
   uint16_t color, pixel;
   for(color=0; color<256; color++) {
+
+      checkButton();
 
     if( storm ) {
       if( color % 50 == 0 ) {
@@ -397,6 +433,8 @@ void rainbow(uint8_t wait) {
     for(i=0; i<50; i++) { // 50 should be N_PIXELS_FULL i think but not chekcing now
       setNormalPixelColor(i, Wheel((i+j) & 255));
     }
+    setBrightness();
+    checkButton();
     matrix.show();
     delay(wait);
   }
