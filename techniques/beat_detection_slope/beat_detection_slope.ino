@@ -19,9 +19,9 @@
   #include <avr/power.h>
 #endif
 #define PIN 6
-#define NUM_LEDS 8
+#define NUM_LEDS 60
 #define BRIGHTNESS 50
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRBW + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
 
  // clipping indicator variables
 boolean clipping = 0;
@@ -56,13 +56,17 @@ void setup(){
   strip.show(); // Initialize all pixels to 'off'
 
   Serial.begin(115200);
-
-  pinMode(13,OUTPUT); // led indicator pin
+//Serial.println(analogRead(A1));Serial.println(analogRead(A2));
+  //pinMode(13,OUTPUT); // led indicator pin
 
   // set up continuous sampling of analog pin 0 at 38.5kHz
   cli(); // disable interrupts
   ADCSRA = 0; // clear ADCSRA and ADCSRB registers
   ADCSRB = 0;
+
+  // Feather A0 is ADC7 https://cdn-learn.adafruit.com/assets/assets/000/041/528/original/microcomputers_Adafruit_Feather_32u4_Basic_Proto_v2_2.png?1494120696
+  ADMUX=0x07; //Binary equivalent of 0111 http://www.robotplatform.com/knowledge/ADC/adc_tutorial_4.html
+
   ADMUX |= (1 << REFS0); // set reference voltage
   ADMUX |= (1 << ADLAR); // left align the ADC value- so we can read highest 8 bits from ADCH register only
   ADCSRA |= (1 << ADPS2) | (1 << ADPS0); // set ADC clock with 32 prescaler- 16mHz/32=500kHz
@@ -156,21 +160,27 @@ void checkClipping(){ // manage clipping indicator LED
 
 byte gravity_gamma[] = { 1, 1, 2, 3, 5, 8, 13, 21 };
 void beat(){
-  uint32_t c = strip.Color(25,0,25,0);
-  int d = 2;
-  int i = 10;
-  for(i = 0; i<8; i++){
-    strip.setPixelColor(i, c); strip.show(); delay(gravity_gamma[i]*d);
+  uint32_t c = strip.Color(255,0,255);
+  int d = 0;
+  int i,j;
+  for(i = 0; i<NUM_LEDS; i++){
+  for(j = 0; j<10; j++){
+    strip.setPixelColor(i, c); 
   }
-  for(i = 8; i>=0; i--){
-    strip.setPixelColor(i, 0); strip.show(); delay(gravity_gamma[i]*d);
+  strip.show(); delay(gravity_gamma[byte(i*8/NUM_LEDS)]*d);
+  }
+  for(i = NUM_LEDS-1; i>=0; i--){
+  for(j = 0; j<10; j++){
+    strip.setPixelColor(i, 0);
+  }
+    strip.show(); delay(gravity_gamma[byte(i*8/NUM_LEDS)]*d);
   }
   // delay(gravity_gamma[7]*d*3);
   delay(150);
 }
 
 void loop(){
-  checkClipping();
+  //checkClipping();
   if (checkMaxAmp>ampThreshold){
     frequency = 38462/float(period); // calculate frequency timer rate/period
     if (frequency<1800){

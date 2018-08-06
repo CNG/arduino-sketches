@@ -76,7 +76,7 @@ void loop() {
 
     for(i = 0;;++i){
         // Read ADC and center so +-512
-        sample = (float)analogRead(9)-503.f;
+        sample = (float)analogRead(0)-503.f;
 
         // Filter only bass component
         value = bassFilter(sample);
