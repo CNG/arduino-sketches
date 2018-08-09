@@ -1,468 +1,197 @@
-#include <Adafruit_GFX.h>
-#include <Adafruit_NeoMatrix.h>
-#include <Adafruit_NeoPixel.h>
+#include "utilities.h"
+#include "Lights.h"
+#include "VolumeMeter.h"
+
+//#define DEBUG
+#ifdef DEBUG
+ #define PRINT(x) Serial.print (x)
+ #define PRINTLN(x) Serial.println (x)
+#else
+ #define PRINT(x)
+ #define PRINTLN(x)
+#endif
 
 
-#define N_PIXELS_FULL 120
-#define N_PIXELS_HALF 60
-#define BRIGHTNESS 255
-#define N_STRANDS     5
-#define MIC_PIN   A0  // Microphone is attached to this analog pin
-#define LED_PIN    6  // NeoPixel LED strand is connected to this pin
-#define DC_OFFSET  0  // DC offset in mic signal - if unusure, leave 0
-#define SAMPLES   10  // Length of buffer for dynamic level adjustment
-#define TOP       62  // Allow dot to go slightly off scale
-#define PEAK_FALL 5  // Rate of peak falling dot
+const byte
+  pin_microphone = A0,  // Microphone is attached to this analog pin
+  pin_lights = 6,  // NeoPixel LED strand is connected to this pin
+  pin_brightness = A1,  // using 1K potentiometer
+  pin_secondary = A2,  // other setting, like color or speed, using 1K pot
+  pin_mode_button = SCL,
+  pin_unused = A3;  // For seeding random number generator
+const word
+  pixels_tall = 5,
+  pixels_wide = 120,
+  peak_fall_rate = 5,
+  num_samples = 10;
 
-byte
-  peak      = 0,      // Used for falling dot
-  dotCount  = 0,      // Frame counter for delaying dot-falling speed
-  volCount  = 0;      // Frame counter for storing past volume data
-int
-  vol[SAMPLES],       // Collection of prior volume samples
-  lvl       = 10,     // Current "dampened" audio level
-  minLvlAvg = 0,      // For dynamic adjustment of graph low & high
-  maxLvlAvg = 512;
-Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(N_PIXELS_FULL, N_STRANDS, LED_PIN,  NEO_MATRIX_TOP     + NEO_MATRIX_RIGHT +  NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,  NEO_GRB            + NEO_KHZ800);
-//Adafruit_NeoPixel matrix = Adafruit_NeoPixel(N_PIXELS_FULL*N_STRANDS, LED_PIN, NEO_GRB + NEO_KHZ800);
-int noise = 1;
+Lights lights (pin_lights, pixels_wide, pixels_tall);
+VolumeMeter volume_meter (
+  pin_microphone, lights.mirrored_width, peak_fall_rate, num_samples
+  );
 
-int switchPin = SCL; // switch is connected to pin 0
-int lightMode; // how many times the button has been pressed
-uint8_t _pin_pot = A1; // using 1K potentiometer
+volatile boolean button_pushed;
+byte mode;  // Current program mode; button push increments
+byte brightness;  // Store brightness from pot for passing to functions
+byte level;  // Store value from secondary pot for other settings
 
 
 void setup() {
-  pinMode(switchPin, INPUT_PULLUP); // Set the switch pin as input
-  attachInterrupt(0, buttonInterrupt, FALLING); // listen for high to low
-randomSeed(analogRead(A0));
+  #ifdef DEBUG
+    Serial.begin(9600);
+    while( !Serial );
+  #endif
 
-  memset(vol, 0, sizeof(vol));
-  Serial.begin(9600);
-  noise = ( analogRead(MIC_PIN) % 9 ) * 20;
-  setBrightness();
-  matrix.begin();
-  lightMode = random(2,4); // how many times the button has been pressed
+  // Set the button pin as input and listen for high to low
+  pinMode(pin_mode_button, INPUT_PULLUP);
+  attachInterrupt(pin_mode_button, buttonInterrupt, FALLING);
 
-}
-
-boolean pushed = false;
-/**
- * Instead doing work directly within interrupt, we'll just toggle a
- * variable that we'll check for later. This prevents any weirdness due to 
- * variable volatility.
- */
-void buttonInterrupt() {
-  pushed = true;
-}
-/**
- * See if button was pushed. If so, delay and then set "pushed" back to false.
- * If we don't delay first, the interrupt might set "pushed" back to true, 
- * causing the condition to fire too many times on "one" button push.
- */
-boolean checkButton() {
-  if( pushed ){
-    setBrightness();
-    delay(250);
-    pushed = false;
-    //lightMode++;
-    return true;
-  }
-  return false;
+  randomSeed(analogRead(pin_unused));
+  lights.setBrightnessPin(pin_brightness);
+  mode = random(2,5); // how many times the button has been pressed
+  mode = 4;
+  PRINTLN("Done setting up!");
 }
 
 
-/*
-  Set strip brightness based on potentiometer value
- */
-void setBrightness() {
-  // convert analogRead's range of 0 to 1023 to brightness range 0 to 255
-  uint8_t brightness = map(analogRead(_pin_pot), 0, 1023, 0, 255);
-  matrix.setBrightness(brightness);
-}
-
-
-void setMeterPixelColor(uint16_t n, uint32_t c){
-  for(uint8_t i = 0; i<N_STRANDS; i++){
-    if(n+i < N_PIXELS_FULL){
-      matrix.drawPixel(n+i,i,c);
-      matrix.drawPixel(N_PIXELS_FULL-n-1+i,i,c);
-    }else{
-      matrix.drawPixel(n+i,i,c);
-      matrix.drawPixel(n+i-N_PIXELS_FULL,i,c);
-      matrix.drawPixel(N_PIXELS_FULL-n-1+i,i,c);
-    }
-    //matrix.setPixelColor(n,c);
-    //matrix.setPixelColor(N_PIXELS_FULL-n-1,c);
-  }
-}
-void setMeterPixelColor(uint16_t n, uint8_t r, uint8_t g, uint8_t b){
-  setMeterPixelColor(n, matrix.Color(r,g,b));
-}
-void setNormalPixelColor(uint16_t n, uint32_t c){
-  for(uint8_t i = 0; i<N_STRANDS; i++){
-    if(n+i < N_PIXELS_FULL){
-      matrix.drawPixel(n+i,i,c);
-    }else{
-      matrix.drawPixel(n+i-N_PIXELS_FULL,i,c);
-    }
-    //matrix.setPixelColor(n,c);
-  }
-}
-void setNormalPixelColor(uint16_t n, uint8_t r, uint8_t g, uint8_t b){
-  setNormalPixelColor(n, matrix.Color(r,g,b));
-}
-
-void modePulseSlow(){
-    checkButton();
-    colorWipe(matrix.Color(0, 0, 0), 0);
-
-    delay(1000);
-    checkButton();
-    pulse2(matrix.Color(255,0,0));
-    delay(5000);
-//    pulse2(matrix.Color(128,128,0));
-//    delay(5000);
-    checkButton();
-    pulse2(matrix.Color(0,255,0));
-    delay(5000);
-//    pulse2(matrix.Color(0,128,128));
-//    delay(5000);
-    checkButton();
-    pulse2(matrix.Color(0,0,255));
-//    delay(5000);
-//    pulse2(matrix.Color(128,0,128));
-//    delay(5000);
-//    pulse2(matrix.Color(125,125,125));
-
-    //delay(20);
-}
-void modePulseFast(){
-    
-    checkButton();
-    pulse(matrix.Color(255,0,0));
-    checkButton();
-    pulse(matrix.Color(128,128,0));
-    checkButton();
-    pulse(matrix.Color(0,255,0));
-    checkButton();
-    pulse(matrix.Color(0,128,128));
-    checkButton();
-    pulse(matrix.Color(0,0,255));
-    checkButton();
-    pulse(matrix.Color(128,0,128));
-    checkButton();
-    pulse(matrix.Color(125,125,125));
-    //whiteFlash(60);
-}
-void modeRainbow(){
-    //rainbow(1);
-    //rainbowCycle(1);
-    for(uint16_t j=0; j<32; j++) {
-      checkButton();
-      for(uint16_t i=0; i<N_PIXELS_HALF; i++) {
-        setMeterPixelColor(i, Wheel((i+(j*8-1)) & 255));
-      }
-      matrix.show();
-      delay(50);
-    }
-}
-
-void modeVolMeter(){
-  while(true){
-    checkButton();
-    volMeter();
-  }
-}
-
-void modeAnts(){
-      /*
-      int times[] = {1,5,2,10};
-      int spaces[] = {0,2,3,3,3,3,4,6,10,15,20};
-      for(uint16_t j=0; j<sizeof(times); j++) {
-        uint8_t wait = times[random(0,sizeof(times))];
-        rainbow( 5, wait, spaces[random(0,sizeof(spaces))], j%2==0, random(0,15) == 0, random(0,30) == 0 );
-      }
-      */
-      uint8_t times[]  = {  0, 1, 1, 2, 2, 3, 4 };
-      //int spaces[] = {  0, 2, 2, 4, 6,10,16,26,42 };
-      uint8_t spaces[] = { 7, 5, 5, 4, 3, 3, 0 };
-      for(uint8_t j=0; j<sizeof(times); j++) {
-        checkButton();
-        rainbow2( 5, times[j], spaces[j], j%2==0, random(0,8) == 0 && spaces[j] > 0, random(0,2000) == 0 );
-      }
-}
 
 void loop() {
-
   checkButton();
-  setBrightness();
-
-  switch (lightMode) {
-    default:
-      // we exceeded defined modes, reset and fall through
-      lightMode = 2;
-    case 0: modePulseSlow(); break;
-    case 1: modePulseFast(); break;
-    case 2: modeRainbow(); break;
+  brightness = lights.setBrightness();
+  lights.show();
+  switch (mode) {
+    default: // rollover
+      mode = 0; break;
+    case 1: lights.rainbow(lights.mirrored_width, 0, level, 32, true, false); break;
+    case 2: lights.rainbow(lights.width, 0, level, 256, false, true); break;
     case 3: modeVolMeter(); break;
     case 4: modeAnts(); break;
-  }
-
-}
-
-// Fill the dots one after the other with a color
-void colorWipe(uint32_t c, uint8_t wait) {
-  for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-    setNormalPixelColor(i, c);
-    if ( wait ) {
-      matrix.show();
-      delay(wait);
-    }
-  }
-  if ( wait == 0 ) {
-    matrix.show();
+    //case 4: modePulseSlow(); break;
+    //case 5: modePulseFast(); break;
+    
+    //brokish: case : modePulseSlow(); break;
+    //brokish: case : modePulseFast(); break;
   }
 }
 
-void whiteFlash(uint8_t w) {
 
-  for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-      setNormalPixelColor(i, matrix.Color(255, 255, 255));
-  }
-  matrix.show();
-  delay(w);
-  for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-      setNormalPixelColor(i, matrix.Color(0, 0, 0));
-  }
-  matrix.show();
-  delay(w);
-
-
+// Toggle variable and check later. Doing work directly within
+// interrupt can cause weirdness due to variable volatility.
+void buttonInterrupt() {
+  button_pushed = true;
 }
 
-void pad( int number, byte width = 3 ) {
- int currentMax = 10;
- for (byte i=1; i<width; i++){
-   if (number < currentMax) {
-     Serial.print("0");
-   }
-   currentMax *= 10;
- }
- Serial.print(number);
+
+// See if button was pushed. If so, delay and then set button_pushed back to false.
+// If we don't delay first, the interrupt might set button_pushed back to true, 
+// causing the condition to fire too many times on one button push.
+boolean checkButton() {
+  if ( button_pushed ) {
+    PRINTLN("button_pushed");
+    lights.setBrightness();
+    level = analogRead(pin_secondary) / 4;
+    delay(250);  // Maybe better to set a timer?
+    button_pushed = false;
+    mode++;
+    return true;
+  }
+  return button_pushed;
 }
 
-void rainbow2(uint8_t mode, uint8_t wait, uint8_t spaces, boolean dir, boolean solid, boolean storm) {
-  uint16_t color, pixel;
-  for(color=0; color<256; color++) {
 
-      checkButton();
+void modeVolMeter() {
+  static byte
+    startColor = 60,
+    endColor   = 250;
+  static Levels levels;
+  static word i;
+  static word max_height = volume_meter.max_height;
 
-    if( storm ) {
-      if( color % 50 == 0 ) {
-        uint8_t flashes = random(1,9);
-        for( uint8_t p = 0; p<=flashes; p++ ){
-          whiteFlash(60);
-        }
-        color = color + flashes;
-        continue;
+  while(true) {
+    if (checkButton()) { return; };
+    levels = volume_meter.sample();
+    PRINT(levels.height); PRINT(" "); PRINTLN(levels.peak);
+
+    // Color pixels based on rainbow gradient.
+    for (i=0; i<max_height-2; i++) {
+      if (i >= levels.height) { 
+        lights.setMirroredPixelColor(
+          max_height-i-1,
+          0, 0, 0
+          );
+      } else {
+        lights.setMirroredPixelColor(
+          max_height-i,
+          Wheel(map(i, 0, max_height-1, startColor, endColor))
+          );
       }
     }
 
-    delay(7);
-    for(pixel=0; pixel<N_PIXELS_HALF; pixel++) {
-      if(mode==1||mode==2){
-        // every pixel different color
-        setMeterPixelColor(pixel, Wheel((pixel+color) & 255));
-      }else if(mode==3||mode==4){
-        // every pixel same color
-        setMeterPixelColor(pixel, Wheel(color));
-      }else if(mode==5||mode==6){
-  
-        uint8_t chunkSize = spaces + 1;
-        // need to loop through num spaces but only trigger on one pixel
-        for( uint8_t space = 0; space<=spaces; space++ ){
-          if( pixel % chunkSize == space ){
-            if( dir ){
-              if( color % chunkSize == space ) {
-                if( solid ){
-                  uint16_t approx, colorDist;
-                  colorDist = 255 / 6;
-                  approx = color - (color % colorDist);
-                  setMeterPixelColor(pixel, Wheel(approx));
-                } else {
-                  setMeterPixelColor(pixel, Wheel(color));
-                }
-              } else {
-                setMeterPixelColor(pixel, matrix.Color(0, 0, 0));
-              }
-            } else {
-              if( color % chunkSize == ( spaces - space) ) {
-                if( solid ){
-                  uint16_t approx, colorDist;
-                  colorDist = 255 / 6;
-                  approx = color - (color % colorDist);
-                  setMeterPixelColor(pixel, Wheel(approx));
-                } else {
-                  setMeterPixelColor(pixel, Wheel(color));
-                }
-              } else {
-                setMeterPixelColor(pixel, matrix.Color(0, 0, 0));
-              }
-            }
-          }
-        }
-  
-      }
+    // Draw peak dot.
+    if (levels.peak > 0 && levels.peak <= max_height-1) {
+      lights.setMirroredPixelColor(
+        max_height-levels.peak,
+        Wheel(map(
+          max_height-levels.peak,
+          0, max_height-1,
+          startColor, endColor
+          ))
+        );
     }
-    matrix.show();
-    delay(wait);
-    if(mode==2||mode==4||mode==6){
-      for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-        setNormalPixelColor(i, matrix.Color(0, 0, 0));
-      }
-      matrix.show();
-      delay(wait);
-    }  }
-}
 
-void pulse(uint32_t c) {
-  for(uint16_t j=1; j<42; j++) {
-    matrix.setBrightness(map(j*6-1,0,255,0,BRIGHTNESS));
-    for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-      setNormalPixelColor(i, c);
-    }
-    matrix.show();
-  }
-  for(uint16_t j=42; j>0; j--) {
-    matrix.setBrightness(map(j*6-1,0,255,0,BRIGHTNESS));
-    for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-      setNormalPixelColor(i, c);
-    }
-    matrix.show();
-  }
-  matrix.setBrightness(BRIGHTNESS);
-}
-void pulse2(uint32_t c) {
-  for(uint16_t j=1; j<128; j++) {
-    matrix.setBrightness(map(j*2-1,0,255,0,BRIGHTNESS));
-    for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-      setNormalPixelColor(i, c);
-    }
-    matrix.show();
-  }
-  delay(1000);
-  for(uint16_t j=64; j>0; j--) {
-    matrix.setBrightness(map(j*4-1,0,255,0,BRIGHTNESS));
-    for(uint16_t i=0; i<N_PIXELS_FULL; i++) {
-      setNormalPixelColor(i, c);
-    }
-    matrix.show();
-  }
-  matrix.setBrightness(BRIGHTNESS);
-}
-
-void volMeter(){
-  uint16_t  i;
-  uint16_t minLvl, maxLvl;
-  int      n, height;
-
-  int startColor, endColor;
-  startColor = 60;
-  endColor   = 250;
-
-  n   = analogRead(MIC_PIN); // Raw reading from mic 
-  n   = abs(n - 512 - DC_OFFSET); // Center on zero
-  n   = (n <= noise) ? 0 : (n - noise); // Remove noise/hum
-  lvl = ((lvl * 7) + n) >> 3; // "Dampened" reading (else looks twitchy)
-
-  Serial.print(lvl);
-  Serial.print(' ');
-
-  // Calculate bar height based on dynamic min/max levels (fixed point):
-  height = TOP * (lvl - minLvlAvg) / (long)(maxLvlAvg - minLvlAvg);
-  Serial.println(height);
-
-  if(height < 0L)       height = 0;      // Clip output
-  else if(height > TOP) height = TOP;
-  if(height > peak)     peak   = height; // Keep 'peak' dot at top
-
-  // Color pixels based on rainbow gradient
-  //setMeterPixelColor(N_PIXELS_HALF-1,Wheel(map(0,0,N_PIXELS_HALF-1,startColor,endColor)));
-  //setMeterPixelColor(N_PIXELS_HALF-2,Wheel(map(1,0,N_PIXELS_HALF-1,startColor,endColor)));
-  for(i=0; i<N_PIXELS_HALF-2; i++) {
-    if(i >= height){ 
-      setMeterPixelColor(N_PIXELS_HALF-i-1,   0,   0, 0);
-    } else {
-      setMeterPixelColor(N_PIXELS_HALF-i,Wheel(map(i,0,N_PIXELS_HALF-1,startColor,endColor)));
-    }
-  }
-
-  // Draw peak dot  
-  if(peak > 0 && peak <= N_PIXELS_HALF-1){
-    setMeterPixelColor(N_PIXELS_HALF-peak,Wheel( map(N_PIXELS_HALF-peak,0,N_PIXELS_HALF-1,startColor,endColor) ));
-  }
-  
-  matrix.show(); // Update matrix
-
-  // Every few frames, make the peak pixel drop by 1:
-  if(++dotCount >= PEAK_FALL) { 
-    if(peak > 0) peak--;
-    dotCount = 0;
-  }
-
-  vol[volCount] = n;                      // Save sample for dynamic leveling
-  if(++volCount >= SAMPLES) volCount = 0; // Advance/rollover sample counter
-
-  // Get volume range of prior frames
-  minLvl = maxLvl = vol[0];
-  for(i=1; i<SAMPLES; i++) {
-    if(vol[i] < minLvl)      minLvl = vol[i];
-    else if(vol[i] > maxLvl) maxLvl = vol[i];
-  }
-  if((maxLvl - minLvl) < TOP) maxLvl = minLvl + TOP;
-  minLvlAvg = (minLvlAvg * 63 + minLvl) >> 6; // Dampen min/max levels
-  maxLvlAvg = (maxLvlAvg * 63 + maxLvl) >> 6; // (fake rolling average)
-
-}
-
-//Rainbow Program
-void rainbow(uint8_t wait) {
-  uint16_t i, j;
-  for(j=0; j<255; j++) {
-    for(i=0; i<50; i++) { // 50 should be N_PIXELS_FULL i think but not chekcing now
-      setNormalPixelColor(i, Wheel((i+j) & 255));
-    }
-    setBrightness();
-    checkButton();
-    matrix.show();
-    delay(wait);
-  }
-}
-
-// Rainbow Cycle Program - Equally distributed
-void rainbowCycle(uint8_t wait) {
-  uint16_t i, j;
-  for(j=0; j<256; j++) { // 5 cycles of all colors on wheel
-    for(i=0; i< N_PIXELS_FULL; i++) {
-      setNormalPixelColor(i, Wheel(((i * 256 / N_PIXELS_FULL) + j) & 255));
-    }
-    matrix.show();
-    delay(wait);
+    lights.show();
   }
 }
 
 
-// Input a value 0 to 255 to get a color value.
-// The colors are a transition r - g - b - back to r.
-uint32_t Wheel(byte WheelPos) {
-  if(WheelPos < 85) {
-   return matrix.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-  } else if(WheelPos < 170) {
-   WheelPos -= 85;
-   return matrix.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-  } else {
-   WheelPos -= 170;
-   return matrix.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+void modeAnts() {
+  byte times[]  = { 0, 1, 1, 2, 2, 3, 4 };
+  byte spaces[] = { 7, 5, 5, 4, 3, 3, 0 };
+  for (byte i = 0; i < sizeof(times); i++) {
+    if (checkButton()) { return; };
+    lights.raincrazy( 5, times[i], spaces[i], i%2==0, random(0,8) == 0 && spaces[i] > 0, random(0,2000) == 0 );
   }
+}
+
+
+void modePulseSlow() {
+    if (checkButton()) { return; };
+    lights.colorWipe(Color(0, 0, 0), pixels_wide-1, 0, 0);
+    delay(1000);
+    if (checkButton()) { return; };
+    lights.pulse2(Color(255,0,0), brightness);
+    delay(5000);
+    // lights.pulse2(Color(128,128,0), brightness);
+    // delay(5000);
+    if (checkButton()) { return; };
+    lights.pulse2(Color(0,255,0), brightness);
+    delay(5000);
+    // lights.pulse2(Color(0,128,128), brightness);
+    // delay(5000);
+    if (checkButton()) { return; };
+    lights.pulse2(Color(0,0,255), brightness);
+    // delay(5000);
+    // lights.pulse2(Color(128,0,128), brightness);
+    // delay(5000);
+    // lights.pulse2(Color(125,125,125), brightness);
+    // delay(20);
+}
+
+
+void modePulseFast() {
+    if (checkButton()) { return; };
+    lights.pulse(Color(255,0,0), brightness);
+    if (checkButton()) { return; };
+    lights.pulse(Color(128,128,0), brightness);
+    if (checkButton()) { return; };
+    lights.pulse(Color(0,255,0), brightness);
+    if (checkButton()) { return; };
+    lights.pulse(Color(0,128,128), brightness);
+    if (checkButton()) { return; };
+    lights.pulse(Color(0,0,255), brightness);
+    if (checkButton()) { return; };
+    lights.pulse(Color(128,0,128), brightness);
+    if (checkButton()) { return; };
+    lights.pulse(Color(125,125,125), brightness);
+    // whiteFlash(60);
 }

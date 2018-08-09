@@ -18,6 +18,9 @@
 | [Arduino Mego 2560 R3]          |   7-12  | 256 KB |   8 KB |   4 KB | 16 MHz | [ATmega2560]             |
 | [Arduino Micro]                 |   7-12  |  28 KB | 2.5 KB |   1 KB | 16 MHz | [ATmega32u4]             |
 
+Some great tips and snippets for M0 at [Adapting Sketches to M0].
+
+[Adapting Sketches to M0](https://learn.adafruit.com/adafruit-feather-m0-basic-proto/adapting-sketches-to-m0)
 
 [Adafruit Feather 32u4]: https://learn.adafruit.com/adafruit-feather-32u4-basic-proto/overview
 [Adafruit Feather M0]: https://learn.adafruit.com/adafruit-feather-m0-basic-proto/overview
