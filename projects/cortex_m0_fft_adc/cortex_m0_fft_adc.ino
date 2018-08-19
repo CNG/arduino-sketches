@@ -14,12 +14,11 @@ Some code originally from https://github.com/stimmer/DueVGA/blob/master/extras/W
 
 byte log_level = 1;
 
-#include "FFTTool.h"
+#include <FFTTool.h>
 
 const word FFT_exponent = 2;  // for FFT_size 512
 const word FFT_size = 128 * pow(2, FFT_exponent);
 const byte num_buckets = 6;
-
 FFTTool fft (FFT_size);
 
 
@@ -27,12 +26,16 @@ void ADC_Handler() {
   HANDLER_HELPER fft.handler();
 }
 
+
 void setup() {
+  #ifdef DEBUG
   Serial.begin(115200);
   while(!Serial);
+  #endif
   fft.setup();
   PRINTLN("Starting");
 }
+
 
 void loop() {
   // static unsigned long start_time = millis();
