@@ -4,5 +4,6 @@
 #include <Adafruit_NeoMatrix.h>
 
 char * padded(int number, byte width);
+byte sine(byte x);
 
 #endif

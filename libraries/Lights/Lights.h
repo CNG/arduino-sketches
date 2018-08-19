@@ -18,13 +18,17 @@ unsigned long
 class Lights {
   private:
     byte pin_brightness;
-    neoPixelType led_type = NEO_GRB + NEO_KHZ800;
-    byte matrix_type = NEO_MATRIX_TOP + NEO_MATRIX_RIGHT
-      + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG;
   public:
     word width, height, mirrored_width;
     Adafruit_NeoMatrix lights;
-    Lights(byte pin, word width_, word height_=0)
+    Lights(
+      byte pin,
+      word width_,
+      word height_=0,
+      byte matrix_type = NEO_MATRIX_TOP + NEO_MATRIX_RIGHT
+        + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
+      neoPixelType led_type = NEO_GRB + NEO_KHZ800
+      )
       :
       width(width_),
       height(height_),
@@ -36,12 +40,12 @@ class Lights {
     void setBrightnessPin(byte pin);
     byte setBrightness(int level=-1);
     void show();
-    void setMirroredPixelColor(word pixel, unsigned long color);
-    void setMirroredPixelColor(word pixel, byte r, byte g, byte b);
-    void setPixelColor(word pixel, unsigned long color);
-    void setPixelColor(word pixel, unsigned long color, boolean mirrored);
-    void setPixelColor(word pixel, byte r, byte g, byte b);
-    void setPixelColor(word pixel, byte r, byte g, byte b, boolean mirrored);
+    void setMirroredPixelColor(word pixel, unsigned long color, char skew=1);
+    void setMirroredPixelColor(word pixel, byte r, byte g, byte b, char skew=1);
+    void setPixelColor(word pixel, unsigned long color, char skew=1);
+    void setPixelColor(word pixel, unsigned long color, boolean mirrored, char skew=1);
+    void setPixelColor(word pixel, byte r, byte g, byte b, char skew=1);
+    void setPixelColor(word pixel, byte r, byte g, byte b, boolean mirrored, char skew=1);
 
     void rainbow(
       word end_pixel,
@@ -67,14 +71,24 @@ class Lights {
       );
     void pulse(unsigned long c, byte brightness);
     void pulse2(unsigned long c, byte brightness);
-    void raincrazy(
+    byte raincrazy(
       byte mode,
       byte delay_ms,
       byte spaces,
-      boolean dir,
+      boolean direction,
       boolean solid,
-      boolean storm
+      boolean storm,
+      boolean mirrored
       );
+    byte thing(
+      byte delay_ms,
+      byte interval,
+      word cycles,
+      char skew,
+      boolean direction,
+      boolean mirrored
+      );
+
 };
 
 #endif
