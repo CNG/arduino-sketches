@@ -1,8 +1,8 @@
 #include <Adafruit_NeoPixel.h>
 
-#define MIC_PIN   A9  // Microphone is attached to this analog pin
-#define LED_PIN    6  // NeoPixel LED strand is connected to this pin
-#define DC_OFFSET  0  // DC offset in mic signal - if unusure, leave 0
+#define MIC_PIN   A5  // Microphone is attached to this analog pin
+#define LED_PIN    5  // NeoPixel LED strand is connected to this pin
+#define DC_OFFSET  1000  // DC offset in mic signal - if unusure, leave 0
 #define NOISE     10  // Noise/hum/interference in mic signal
 #define SAMPLES   50  // Length of buffer for dynamic level adjustment
 #define TOP       100 + 2 // Allow dot to go slightly off scale
@@ -16,7 +16,7 @@ int
   minLvlAvg = 0,      // For dynamic adjustment of graph low & high
   maxLvlAvg = 512;
 Adafruit_NeoPixel
-  strip = Adafruit_NeoPixel(100, LED_PIN, NEO_GRB + NEO_KHZ800);
+  strip = Adafruit_NeoPixel(185, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   memset(vol, 0, sizeof(vol));
