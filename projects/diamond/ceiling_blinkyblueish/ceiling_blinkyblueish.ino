@@ -16,7 +16,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(N_PIXELS, PIN, NEO_RGB);
 int PLAYA_LENGTH = 8000;
 int BLINK_LENGTH = 4800;
 int SPARKLE_LENGTH = 3200;
-
+long currentMillis = 0;
 
 //playa cloud vars
 byte peak = 16;      // Peak level of column; used for falling dots
@@ -33,11 +33,11 @@ void setup() {
 }
 
 void loop() {
-//  rainbow(1);
+  rainbow(1);
   playacloud();
-//  sparkle(strip.Color(255,128,212));
-//  sparkle(strip.Color(255,255,255));
-//  rainbow2(1);
+  sparkle(strip.Color(255,128,212));
+  sparkle(strip.Color(255,255,255));
+  rainbow2(1);
   playacloud();
 }
 
@@ -52,7 +52,9 @@ void rainbow2(uint8_t wait) {
   s = 0; 
   p = random(1,5);
   int counter = 0;
-  while(counter<BLINK_LENGTH * 4) {
+  currentMillis = millis();
+  long endTime = currentMillis + 2 * 60 * 1000;
+  while(millis()<endTime) {
     do {
       if( s%10 == 0 ){
         for(i=0; i<strip.numPixels(); i++) {
@@ -80,7 +82,9 @@ void rainbow(uint8_t wait) {
   s = 0; 
   p = 0;
   int counter = 0;
-  while(counter<BLINK_LENGTH) {
+  currentMillis = millis();
+  long endTime = currentMillis + 2 * 60 * 1000;
+  while(millis()<endTime) {
     do {
       if( s%10 == 0 ){
         for(i=0; i<strip.numPixels(); i++) {
