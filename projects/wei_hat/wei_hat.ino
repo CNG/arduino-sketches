@@ -1,11 +1,11 @@
 
 #include <Adafruit_NeoPixel.h>
 
-#define PIXELS_PER_LINE 59
+#define PIXELS_PER_LINE 92
 #define PIXELS_PER_SIDE ceil(PIXELS_PER_LINE/2)
 
 Adafruit_NeoPixel
-  strip = Adafruit_NeoPixel(PIXELS_PER_LINE*2, 6, NEO_GRB + NEO_KHZ800);
+  strip = Adafruit_NeoPixel(PIXELS_PER_LINE*2, 5, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   strip.begin();

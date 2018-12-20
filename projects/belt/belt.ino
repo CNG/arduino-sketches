@@ -1,6 +1,6 @@
 #include <Adafruit_NeoPixel.h>
-#define PIN 6
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, PIN, NEO_GRB + NEO_KHZ800);
+#define PIN 5
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(185, PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   strip.begin();

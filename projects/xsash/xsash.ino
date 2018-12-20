@@ -1,6 +1,6 @@
 #include <Adafruit_NeoPixel.h>
-#define PIN 6
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(180, PIN, NEO_GRB + NEO_KHZ800);
+#define PIN 5
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(185, PIN, NEO_GRB + NEO_KHZ800);
 
 int switchPin = 10; // switch is connected to pin 10
 int pinVal; // variable for reading the pin status
@@ -17,37 +17,17 @@ void setup() {
   strip.show(); // Initialize all pixels to 'off'
 }
 
-void loop() {
-  pinVal = digitalRead(switchPin); // read input value and store it in pinVal
-  delay (20);
-  pinVal2 = digitalRead(switchPin);
-  if (pinVal == pinVal2) {
-    if (pinVal != buttonState && pinVal==LOW) { // the button state has changed!
-      lightMode++;
-      if (lightMode == 4) lightMode = 0;
-    }
-  }
-  buttonState = pinVal; // save the new state in our variable
-
+void loop() {  
+  lightMode = 3;
   if (lightMode == 0) {
     colorWipe(strip.Color(0, 0, 0), 0);
 
     delay(5000);
     pulse2(strip.Color(200,0,0));
     delay(5000);
-//    pulse2(strip.Color(128,128,0));
-//    delay(5000);
     pulse2(strip.Color(0,200,0));
     delay(5000);
-//    pulse2(strip.Color(0,128,128));
-//    delay(5000);
     pulse2(strip.Color(0,0,200));
-//    delay(5000);
-//    pulse2(strip.Color(128,0,128));
-//    delay(5000);
-//    pulse2(strip.Color(125,125,125));
-
-    //delay(20);
   } else if (lightMode == 1) {
     
     pulse(strip.Color(255,0,0));
